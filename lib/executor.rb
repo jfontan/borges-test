@@ -4,7 +4,7 @@ require 'shellwords'
 # Executes commands and gets resource usage
 class Executor
   def initialize(command, *params)
-    @command = Shellwords.join([command]+params)
+    @command = Shellwords.join([command] + params)
   end
 
   # Runs the command and returns status hash with resource usage and
