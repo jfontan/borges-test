@@ -13,9 +13,10 @@ class Borges
   TAR_NAME = 'borges_:VERSION:_:DISTRO:_amd64.tar.gz'
   DIR_NAME = 'borges_:DISTRO:_amd64'
 
-  def initialize(version, distro = 'linux')
+  def initialize(version, ops = {})
     @version = version
-    @distro = distro
+    @distro = ops[:distro] || 'linux'
+    @binary_path = ops[:binary_dir] || './binaries'
     @data = parse_version
     @path = nil
   end
@@ -48,6 +49,11 @@ class Borges
       return
     end
 
+    if (path = find_binary_path)
+      log("Verion #{@version} found in binary cache")
+      return path
+    end
+
     log("Getting information from version #{@version}")
 
     release = get_github_release
@@ -59,6 +65,14 @@ class Borges
   end
 
   private
+
+  def binary_path
+    File.join(@binary_path, "borges.#{@version}")
+  end
+
+  def find_binary_path
+    binary_path if File.exist?(binary_path)
+  end
 
   def get_github_release
     uri = URI(GITHUB_URL)
@@ -119,9 +133,11 @@ class Borges
     zreader = Zlib::GzipReader.new(File.open(tarball.path, 'rb'))
     err = Minitar.unpack(zreader, tmpdir)
     path = File.join(tmpdir, subst(DIR_NAME), 'borges')
-    pp [err, tmpdir, path]
 
-    path
+    FileUtils.mkdir_p(@binary_path)
+    FileUtils.cp(path, binary_path)
+
+    binary_path
   end
 
   def subst(text)
