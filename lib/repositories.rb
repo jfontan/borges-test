@@ -1,6 +1,7 @@
 require 'yaml'
 require 'systemu'
 require 'minitar'
+require 'thread'
 
 def panic(text)
   STDERR.puts(text)
@@ -13,80 +14,47 @@ end
 
 # Repositories class holds repositories and related functionality
 class Repositories
-  def self.from_file(file)
-    r = new
-
-    begin
-      text = File.read(file)
-      yaml = YAML.safe_load(text)
-    rescue => e
-      panic("Could not load repositories yaml: #{e.message}")
-    end
-
-    panic("Malformed repository file") if !yaml.is_a?(Hash)
-
-    yaml.each do |k,v|
-      next if !v
-      panic('Malformed repository file') unless v.is_a?(Hash)
-
-      r.add_group(k, v)
-    end
-
-    r
-  end
-
   def initialize(ops = {})
-    @groups = Hash.new({})
-    @repos = ops[:repos] || './repos'
-    @tars = ops[:tars] || './tars'
+    @repos = ops[:repos] || {}
+    @repos_dir = ops[:repos_dir] || './repos'
+    @tars_dir = ops[:tars_dir] || './tars'
+
     @server_thread = nil
     @server_cid = nil
-  end
-
-  def add_group(name, repos = {})
-    if @groups.has_key?(name)
-      @groups[name].merge!(repos)
-    else
-      @groups[name] = repos
-    end
+    @server_mutex = Mutex.new
   end
 
   def prepare
-    @groups.each do |group, g|
-      log("Downloading group #{group}")
-      next if group.empty?
+    @repos.each do |name, url|
+      log("#{name}: #{url}")
+      next if name.empty?
 
-      g.each do |name, url|
-        log("  #{name}: #{url}")
-        next if name.empty?
-
-        path = File.join(@repos, group, name)
-        if File.exist?(path)
-          log("    repository already exist")
-          next
-        end
-
-        start = Time.now
-
-        begin
-          rc = unpack(group, name, path)
-          if rc == false
-            download(url, path)
-          end
-        rescue => e
-          panic("Could not prepare repository #{group}/#{name}: #{e}")
-        end
-
-        log("    took:  #{Time.now - start}s")
+      path = File.join(@repos_dir, name)
+      if File.exist?(path)
+        log("  repository already exists")
+        next
       end
+
+      start = Time.now
+
+      begin
+        rc = unpack(name, path)
+        if rc == false
+          download(url, path)
+        end
+      rescue => e
+        panic("Could not prepare repository #{name}: #{e}")
+      end
+
+      log("  took:  #{Time.now - start}s")
     end
   end
 
-  def unpack(group, name, path)
-    tar = File.join(@tars, group, "#{name}.tar")
+  def unpack(name, path)
+    tar = File.join(@tars_dir, "#{name}.tar")
     return false if !File.exist?(tar)
 
-    log("    tar: #{tar}")
+    log("  tar: #{tar}")
     Minitar.unpack(tar, path)
   end
 
@@ -97,7 +65,7 @@ class Repositories
 
   def execute(command, *params)
     command = "git #{command} #{params.join(' ')}"
-    log("    command: #{command}")
+    log("  command: #{command}")
 
     status, stdout, stderr = systemu command do |cid|
       yield(cid) if block_given?
@@ -113,19 +81,32 @@ class Repositories
   def start_server(port = 9418)
     log("Starting server on port #{port}")
 
-    @server_thread = Thread.new do
-      execute('daemon', '--reuseaddr', "--base-path=#{@repos}",
-              "--port=#{port}", '--export-all', @repos) do |cid|
+    server_thread = Thread.new do
+      execute('daemon', '--reuseaddr', "--base-path=#{@repos_dir}",
+              "--port=#{port}", '--export-all', @repos_dir) do |cid|
         log("Executing daemon #{cid}")
-        @server_cid = cid
+        @server_mutex.synchronize { @server_cid = cid }
       end
     end
+
+    @server_mutex.synchronize { @server_thread = server_thread }
+
+    # TODO: find out when the server is already running instead of sleeping
+    sleep 2
   end
 
   def stop_server
     log('Stopping server')
-    return unless @server_cid
-    Process.kill("TERM", @server_cid)
-    @server_thread.kill
+    @server_mutex.synchronize do
+      if @server_cid
+        Process.kill("TERM", @server_cid)
+        @server_thread.kill
+        @server_cid = nil
+      end
+    end
+  end
+
+  def local_url(name, port = 9418)
+    "git://localhost:#{port}/#{name}"
   end
 end
