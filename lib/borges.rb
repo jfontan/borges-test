@@ -1,9 +1,11 @@
 require 'net/http'
 require 'open-uri'
 require 'tempfile'
+require 'tmpdir'
 require 'fileutils'
 require 'json'
 require 'minitar'
+require 'zlib'
 
 class Borges
   REG_RELEASE = /^v\d+\.\d+\.\d+$/
@@ -32,6 +34,10 @@ class Borges
     end
   end
 
+  def path
+    @path || download
+  end
+
   def download
     if @data[:type] == :file
       @path = @data[:path]
@@ -40,6 +46,17 @@ class Borges
 
     log("Getting information from version #{@version}")
 
+    release = get_github_release
+    url = find_tarball(release)
+    tarball = download_tarball(url)
+    borges = decompress_tarball(tarball)
+
+    @path = borges
+  end
+
+  private
+
+  def get_github_release
     uri = URI(GITHUB_URL)
     res = Net::HTTP.get_response(uri)
 
@@ -57,6 +74,10 @@ class Borges
 
     panic("Release not found: #{@version}") if !release
 
+    release
+  end
+
+  def find_tarball(release)
     filename = subst(TAR_NAME)
     assets = release['assets']
 
@@ -70,6 +91,10 @@ class Borges
 
     panic("Release tarball not found: #{filename}") if !url
 
+    url
+  end
+
+  def download_tarball(url)
     log("Downloading release #{url}")
 
     tempfile = Tempfile.new('borges-tag')
@@ -81,6 +106,18 @@ class Borges
 
     tempfile.close
     FileUtils.cp(tempfile.path, '/tmp/borges_download')
+
+    tempfile
+  end
+
+  def decompress_tarball(tarball)
+    tmpdir = Dir.mktmpdir('borges-binaries')
+    zreader = Zlib::GzipReader.new(File.open(tarball.path, 'rb'))
+    err = Minitar.unpack(zreader, tmpdir)
+    path = File.join(tmpdir, subst(DIR_NAME), 'borges')
+    pp [err, tmpdir, path]
+
+    path
   end
 
   def subst(text)
