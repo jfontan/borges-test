@@ -10,7 +10,7 @@ class Pack
     @repos = ops[:repos]
   end
 
-  def run
+  def run(version)
     results = {}
 
     @conf.each do |name, resources|
@@ -22,7 +22,7 @@ class Pack
           f.write(@repos.local_url(name))
         end
 
-        exec = Executor.new('borges', 'pack',
+        exec = Executor.new(version.path, 'pack',
                             "--file=#{list}", "--to=#{tmpdir}")
         res = exec.run
 

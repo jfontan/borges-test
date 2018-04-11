@@ -1,14 +1,16 @@
 require 'yaml'
+require 'json'
 
 require 'repositories'
 require 'pack'
 
 class Tests
-  def initialize(conf_file)
+  def initialize(conf_file, versions)
     load_conf(conf_file)
 
     @repos = Repositories.new(repos: @conf['repositories'])
     @pack = Pack.new(repos: @repos, conf: @conf)
+    @versions = load_versions(versions)
   end
 
   def load_conf(conf_file)
@@ -24,11 +26,24 @@ class Tests
     @conf = yaml
   end
 
-  def run
-    results = []
-    results << pack
+  def load_versions(versions)
+    versions.map do |v|
+      borges = Borges.new(v)
+      borges.download
+      borges
+    end
+  end
 
-    results
+  def run
+    @versions.each do |v|
+      log("#### VERSION #{v.name} ####")
+
+      res = pack(v)
+      path = "#{v.name}.json"
+      open(path, "w") do |f|
+        f.write(res.to_json)
+      end
+    end
   end
 
   def prepare
@@ -40,7 +55,7 @@ class Tests
     @repos.stop_server
   end
 
-  def pack
-    @pack.run
+  def pack(version)
+    @pack.run(version)
   end
 end

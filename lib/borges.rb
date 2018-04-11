@@ -38,6 +38,10 @@ class Borges
     @path || download
   end
 
+  def name
+    @version
+  end
+
   def download
     if @data[:type] == :file
       @path = @data[:path]
