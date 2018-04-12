@@ -1,0 +1,32 @@
+---
+conf:
+  time_allowance: 10
+  memory_allowance: 10
+
+repositories:
+  cangallo: https://github.com/jfontan/cangallo
+  octoprint-ttf: https://github.com/mcuadros/OctoPrint-TFT
+  upsilon: https://github.com/upsilonproject/upsilon-common
+  numpy: https://github.com/numpy/numpy
+  tensorflow: https://github.com/tensorflow/tensorflow
+  # bismuth: https://github.com/hclivess/Bismuth
+
+tests:
+  pack:
+    cangallo:
+      time: 1
+      memory: 1000
+    octoprint-ttf:
+      time: 1
+      memory: 1000
+    upsilon:
+      time: 1
+      memory: 1000
+    # numpy:
+    #   time: 1
+    #   memory: 1000
+    # tensorflow:
+    #   time: 1
+    #   memory: 1000
+
+
