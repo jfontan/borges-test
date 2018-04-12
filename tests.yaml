@@ -2,6 +2,7 @@
 conf:
   time_allowance: 10
   memory_allowance: 10
+  file_allowance: 10
 
 repositories:
   cangallo: https://github.com/jfontan/cangallo

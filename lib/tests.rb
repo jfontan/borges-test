@@ -35,6 +35,8 @@ class Tests
   end
 
   def run
+    results = []
+
     @versions.each do |v|
       log("#### VERSION #{v.name} ####")
 
@@ -43,7 +45,11 @@ class Tests
       open(path, "w") do |f|
         f.write(res.to_json)
       end
+
+      results << res.merge({ _version: v.name })
     end
+
+    @results = results
   end
 
   def prepare
@@ -57,5 +63,28 @@ class Tests
 
   def pack(version)
     @pack.run(version)
+  end
+
+  def pack_compare
+    return nil if @results.length < 2
+
+    res = {}
+    @results[0..-2].each_with_index do |run, index|
+      a = run
+      b = @results[index+1]
+      # pp [a, b, @results]
+      name = "#{a[:_version]} - #{b[:_version]}"
+      repos = a.keys - [:_version]
+
+      repo_results = {}
+
+      repos.each do |repo_name|
+        repo_results[repo_name] = Pack.compare(@conf['conf'], a[repo_name], b[repo_name])
+      end
+
+      res[name] = repo_results
+    end
+
+    res
   end
 end

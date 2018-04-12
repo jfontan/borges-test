@@ -14,6 +14,7 @@ tests = Tests.new('tests.yaml', ARGV)
 begin
   tests.prepare
   tests.run
+  pp tests.pack_compare
 ensure
   tests.stop
 end

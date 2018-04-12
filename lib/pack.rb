@@ -4,6 +4,57 @@ require 'tmpdir'
 
 # Runs borges pack tests and check the results
 class Pack
+  def self.compare(conf, a, b)
+    ok = true
+    res = {}
+
+    res[:memory] = compare_numbers(
+      conf['memory_allowance'] || 10,
+      a[:status][:maxrss],
+      b[:status][:maxrss]
+    )
+
+    ok = false if res[:memory][:result] != :ok
+
+    res[:time] = compare_numbers(
+      conf['time_allowance'] || 10,
+      a[:status][:wall],
+      b[:status][:wall]
+    )
+
+    ok = false if res[:time][:result] != :ok
+
+    siva_a = 0
+    siva_b = 0
+    a[:files].each {|f| siva_a += f[:size] }
+    b[:files].each {|f| siva_b += f[:size] }
+
+    res[:siva] = compare_numbers(
+      conf['file_allowance'] || 10,
+      siva_a,
+      siva_b
+    )
+
+    ok = false if res[:siva][:result] != :ok
+
+    return ok, res
+  end
+
+  def self.compare_numbers(allowance, a, b)
+    diff = b - a
+    res = :ok
+    percentage = ( diff.to_f / a ) * 100
+
+    res = :fail if percentage > allowance
+
+    {
+      before: a,
+      after: b,
+      percentage: percentage,
+      result: res
+    }
+  end
+
   def initialize(ops = {})
     @main_conf = ops[:conf]
     @conf = @main_conf['tests']['pack']
