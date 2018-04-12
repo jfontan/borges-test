@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+folder = File.expand_path('lib', __dir__)
+$LOAD_PATH.unshift(folder) unless $LOAD_PATH.include?(folder)
+
+require 'pp'
+
+require 'tests'
+require 'repositories'
+require 'executor'
+require 'borges'
+
+tests = Tests.new('tests.yaml', ARGV)
+begin
+  tests.prepare
+  tests.run
+ensure
+  tests.stop
+end
