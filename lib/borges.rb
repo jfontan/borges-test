@@ -50,8 +50,8 @@ class Borges
     end
 
     if (path = find_binary_path)
-      log("Verion #{@version} found in binary cache")
-      return path
+      log("Version #{@version} found in binary cache")
+      return @path = path
     end
 
     log("Getting information from version #{@version}")

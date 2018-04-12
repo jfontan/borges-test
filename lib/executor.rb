@@ -34,9 +34,13 @@ class Executor
       stdout_out.close
       stdout_in.sync = true
 
+      start = Time.now
       # Both stdout and stderr are redirected to the same pipe
       pid = spawn(@command, out: stdout_in.fileno, err: stdout_in.fileno)
       data = Wait4.wait4(pid)
+      total = Time.now - start
+
+      data[:wall] = total
 
       # Send marshaled data to the main process
       d = Marshal.dump(data)
